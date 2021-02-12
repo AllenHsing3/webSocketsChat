@@ -1,6 +1,8 @@
 import "./App.css";
 import { w3cwebsocket as W3CWebSocket } from "websocket";
-import { Fragment, useState } from "react";
+import { Fragment, useState, useEffect, useRef } from "react";
+import {Message} from './Message'
+import {Button, TextField} from '@material-ui/core'
 
 // Set up to listen on 8000
 const client = new W3CWebSocket("ws://127.0.0.1:8000");
@@ -12,7 +14,7 @@ function App() {
     messages: [{user:"ChatBot", msg:'Welcome to the chat!', type:'message'}],
   });
   const { userName, loggedIn, messages } = user;
-
+  const [loginButton, setLoginButton] = useState("Login")
   const [userMessageInput, setUserMessageInput] = useState("");
   const [userNameInput, setUserName] = useState("");
 
@@ -29,25 +31,44 @@ function App() {
       });
     }
   };
-
+  //Send message
   const handleClick = (e) => {
     e.preventDefault();
-    client.send(
-      JSON.stringify({
-        type: "message",
-        msg: userMessageInput,
-        user: userName,
-      })
-    );
+    if(userMessageInput !== ""){
+      client.send(
+        JSON.stringify({
+          type: "message",
+          msg: userMessageInput,
+          user: userName,
+        })
+      );
+      setUserMessageInput("")
+      // scrollToBottom()
+    }
+
   };
 
   const handleLogin = (e) => {
     e.preventDefault();
-    setUser({
-      userName: userNameInput,
-      loggedIn: true,
-      messages: [...messages]
-    });
+    if(userNameInput === ""){
+      setLoginButton("Username required")
+      setTimeout(() => {
+        setLoginButton("Login")
+      },2000)
+    } else{
+      setUser({
+        userName: userNameInput,
+        loggedIn: true,
+        messages: [...messages]
+      });
+      client.send(
+        JSON.stringify({
+          type: "message",
+          msg: `${userNameInput} has entered the chat!`,
+          user: "ChatBot",
+        })
+      );
+    }
   };
   const handleLoginInput = (e) => {
     setUserName(e.target.value);
@@ -56,27 +77,44 @@ function App() {
     setUserMessageInput(e.target.value);
   };
 
+  //Scroll to bottom on new message
+  const messagesEndRef = useRef(null)
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages]);
+
   return (
-    <div className="App">
+    <div className="main-container">
       {loggedIn ? (
-        <div>
-          {messages.map( message => <p>{message.msg}</p>)}
-          <form onSubmit={(e) => handleClick(e)}>
-            <input
+        <Fragment>
+        <div className="chat-container">
+          {messages.map( message => <Message userName={userName} message={message} />)}
+          <div ref={messagesEndRef} />
+        </div>
+          <form onSubmit={(e) => handleClick(e)} className="chat-form" >
+            <TextField
+            className="chat-input"
+            variant="outlined"
               value={userMessageInput}
               onChange={(e) => handleUserMessageChange(e)}
-            ></input>
-            <button>Send</button>
+            ></TextField>
+            <Button className="chat-button" onClick={(e) => handleClick(e)}>Send</Button>
           </form>
-        </div>
+          </Fragment>
       ) : (
-        <div>
+        <div className="login-form">
           <form onSubmit={(e) => handleLogin(e)}>
-            <input
+            <TextField
+             label="Username"
+             variant="outlined"
               value={userNameInput}
               onChange={(e) => handleLoginInput(e)}
-            ></input>
-            <button>Login</button>
+            ></TextField>
+            <br/>
+            <Button color="primary" onClick={(e) => handleLogin(e)} className="button">{loginButton}</Button>
           </form>
         </div>
       )}
